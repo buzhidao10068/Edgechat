@@ -33,7 +33,11 @@ import {
 import { ChannelRoom } from './do/ChannelRoom.js';
 import { Scheduler } from './do/Scheduler.js';
 import { UserInbox } from './do/UserInbox.js';
-import { forwardInboxConnection, forwardRoomConnection } from './do-bridge.js';
+import {
+  ensureSchedulerArmed,
+  forwardInboxConnection,
+  forwardRoomConnection
+} from './do-bridge.js';
 import { runScheduledGc } from './gc.js';
 import { isUserDisabled } from './user-status.js';
 import {
@@ -347,7 +351,11 @@ app.onError((error) => {
 });
 
 export default {
-  fetch: app.fetch,
+  fetch(request, env, ctx) {
+    // 垃圾回收由 Scheduler Durable Object 的 alarm 驱动，这里负责在闹钟从未上弦时补一次。
+    ensureSchedulerArmed(env, ctx);
+    return app.fetch(request, env, ctx);
+  },
   async scheduled(_controller, env, ctx) {
     ctx.waitUntil(runScheduledGc(env));
   }

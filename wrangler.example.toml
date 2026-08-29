@@ -55,5 +55,8 @@ not_found_handling = "single-page-application"
 run_worker_first = ["/api/*", "/files/*"]
 
 [triggers]
-# Cloudflare Cron 按 UTC 执行；19:00 UTC = 北京时间每天 03:00
-crons = ["0 19 * * *"]
+# 垃圾回收改由 Scheduler Durable Object 的 alarm 驱动（每天 19:00 UTC = 北京 03:00），
+# alarm 不占 Workers Free 每账号 5 条 Cron 触发器的配额，所以这里显式声明为空。
+# 注意：只删掉整个 [triggers] 段是不够的——crons 为 undefined 时 wrangler 会保留线上已有的
+# Cron 触发器，只有显式的空数组才会清除。
+crons = []
