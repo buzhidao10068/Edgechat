@@ -15,6 +15,32 @@ function getUserInboxStub(env, userId) {
 	return env.USER_INBOX.get(env.USER_INBOX.idFromName(name));
 }
 
+const SCHEDULER_SINGLETON_NAME = "gc";
+
+// 每个 isolate 只探一次；Scheduler 自己会判断闹钟是否已存在，重复探测不会改动既有排期。
+let schedulerArmRequested = false;
+
+function getSchedulerStub(env) {
+	return env.SCHEDULER.get(env.SCHEDULER.idFromName(SCHEDULER_SINGLETON_NAME));
+}
+
+export function ensureSchedulerArmed(env, ctx) {
+	if (schedulerArmRequested || !env?.SCHEDULER) {
+		return;
+	}
+
+	schedulerArmRequested = true;
+	ctx.waitUntil(
+		getSchedulerStub(env)
+			.fetch(`${INTERNAL_ORIGIN}/arm`, { headers: createInternalHeaders() })
+			.catch((error) => {
+				// 失败就放开标记交给下一个请求重试，否则这个 isolate 再也不会尝试上弦。
+				schedulerArmRequested = false;
+				console.error("arm gc scheduler failed", error);
+			}),
+	);
+}
+
 export async function forwardVerifiedRequest({
 	stub,
 	request,
